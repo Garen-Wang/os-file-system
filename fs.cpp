@@ -121,7 +121,8 @@ ResultCode FileSystem::list_dir_contents() {
 ResultCode FileSystem::create_file(std::string path, int filesize) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_FILE_NAME;
   if (vec.back().length() >= MAX_FILENAME_SIZE)
     return FILENAME_LENGTH_EXCEEDED;
 
@@ -188,7 +189,8 @@ ResultCode FileSystem::create_file(std::string path, int filesize) {
 ResultCode FileSystem::create_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_DIR_NAME;
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -225,7 +227,8 @@ ResultCode FileSystem::change_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
   if (!vec.empty()) {
-    assert(vec.back().length() != 0);
+    if (vec.back().empty())
+      return NO_DIR_NAME;
     for (int i = 0; i < vec.size() - 1; ++i) {
       auto next_inode = get_next_inode(inode, vec[i]);
       if (next_inode == nullptr || next_inode->filemode != FILEMODE_DENTRY)
@@ -252,8 +255,10 @@ ResultCode FileSystem::change_dir(std::string path) {
 ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
   auto inode = src_path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(src_path);
-  // TODO: FILENAME_LENGTH_EXCEEDED
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_FILE_NAME;
+  if (vec.back().length() > MAX_FILENAME_SIZE)
+    return FILENAME_LENGTH_EXCEEDED;
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -307,7 +312,8 @@ ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
   // copy contents to dest file
   inode = dest_path[0] == '/' ? root_inode : cur_inode;
   vec = split_path(dest_path);
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_FILE_NAME;
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -353,7 +359,8 @@ ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
 ResultCode FileSystem::delete_file(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_FILE_NAME;
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -389,7 +396,8 @@ ResultCode FileSystem::delete_file(std::string path) {
 ResultCode FileSystem::delete_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  assert(vec.back().length() != 0);
+  if (vec.empty() || vec.back().empty())
+    return NO_DIR_NAME;
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -440,8 +448,9 @@ ResultCode FileSystem::delete_dir(std::string path) {
 ResultCode FileSystem::cat(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   auto vec = split_path(path);
-  if (vec.back().empty())
+  if (vec.empty() || vec.back().empty()) {
     return NO_FILE_NAME;
+  }
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
