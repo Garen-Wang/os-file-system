@@ -87,17 +87,22 @@ void FileSystem::init() {
 
 ResultCode FileSystem::list_dir_contents() {
   static const int NUM_FILES_OF_BLOCK = sb.block_size / sizeof(File);
-  cur_inode = new INode(*root_inode);
-  for (int i = 0, cnt = cur_inode->mcount; i < INode::NUM_DIR_ADDR && cnt;
-       ++i, --cnt) {
-    for (int j = 0; j < NUM_FILES_OF_BLOCK; ++j) {
+  cur_inode = read_inode(cur_inode->id);
+  for (int i = 0, cnt = cur_inode->count; i < INode::NUM_DIR_ADDR && cnt > 0;
+       ++i) {
+    for (int j = 0; j < NUM_FILES_OF_BLOCK && cnt > 0; ++j, --cnt) {
       int pos = cur_inode->dir_addrs[i] * BLOCK_SIZE + sizeof(File) * j;
       fseek(f, pos, SEEK_SET);
       File file;
-      fread(&file, pos, 1, f);
+      fread(&file, sizeof(File), 1, f);
       if (file.inode_id != -1) {
         auto inode = read_inode(file.inode_id);
         // TODO: print format
+        char time_buffer[32];
+        std::strftime(time_buffer, 32, "%a, %d.%m.%Y %H:%M:%S",
+                      std::localtime(&inode->ctime));
+        std::cout << "name: " << file.filename << ", ctime: " << time_buffer
+                  << ", size (KiB): " << inode->filesize << std::endl;
       }
     }
   }
