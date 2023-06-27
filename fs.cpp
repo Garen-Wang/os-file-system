@@ -7,6 +7,14 @@
 #include <fstream>
 #include <iostream>
 
+std::string get_filemode_name(int filemode) {
+  if (filemode == FILEMODE_DENTRY)
+    return "dir";
+  if (filemode == FILEMODE_FILE)
+    return "file";
+  return "unknown";
+}
+
 std::vector<std::string> split_path(std::string path) {
   size_t pos;
   std::string token;
@@ -83,6 +91,7 @@ void FileSystem::init() {
     fread(&sb, sizeof(SuperBlock), 1, f);
     root_inode = cur_inode = read_inode(0);
   }
+  strcpy(cur_path, "~");
 }
 
 ResultCode FileSystem::list_dir_contents() {
@@ -102,6 +111,7 @@ ResultCode FileSystem::list_dir_contents() {
         std::strftime(time_buffer, 32, "%a, %d.%m.%Y %H:%M:%S",
                       std::localtime(&inode->ctime));
         std::cout << "name: " << file.filename << ", ctime: " << time_buffer
+                  << ", type: " << get_filemode_name(inode->filemode)
                   << ", size (KiB): " << inode->filesize << std::endl;
       }
     }
@@ -111,8 +121,7 @@ ResultCode FileSystem::list_dir_contents() {
 ResultCode FileSystem::create_file(std::string path, int filesize) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  if (vec.back().length() == 0)
-    return NO_FILE_NAME;
+  assert(vec.back().length() != 0);
   if (vec.back().length() >= MAX_FILENAME_SIZE)
     return FILENAME_LENGTH_EXCEEDED;
 
@@ -179,8 +188,7 @@ ResultCode FileSystem::create_file(std::string path, int filesize) {
 ResultCode FileSystem::create_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  if (vec.back().length() == 0)
-    return NO_DIR_NAME;
+  assert(vec.back().length() != 0);
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -216,20 +224,22 @@ ResultCode FileSystem::create_dir(std::string path) {
 ResultCode FileSystem::change_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(path);
-  if (vec.back().length() == 0)
-    return NO_DIR_NAME;
-
-  for (int i = 0; i < vec.size() - 1; ++i) {
-    auto next_inode = get_next_inode(inode, vec[i]);
-    if (next_inode == nullptr || next_inode->filemode != FILEMODE_DENTRY)
+  if (!vec.empty()) {
+    assert(vec.back().length() != 0);
+    for (int i = 0; i < vec.size() - 1; ++i) {
+      auto next_inode = get_next_inode(inode, vec[i]);
+      if (next_inode == nullptr || next_inode->filemode != FILEMODE_DENTRY)
+        return DIR_NOT_EXIST;
+      inode = next_inode;
+    }
+    auto next_inode = get_next_inode(inode, vec.back());
+    if (next_inode == nullptr)
       return DIR_NOT_EXIST;
-    inode = next_inode;
+    cur_inode = next_inode;
+  } else {
+    cur_inode = read_inode(root_inode->id);
   }
-  auto next_inode = get_next_inode(inode, vec.back());
-  if (next_inode == nullptr)
-    return DIR_NOT_EXIST;
 
-  cur_inode = next_inode;
   if (path[0] == '/') {
     strcpy(cur_path, "~");
   }
@@ -243,8 +253,7 @@ ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
   auto inode = src_path[0] == '/' ? root_inode : cur_inode;
   std::vector<std::string> vec = split_path(src_path);
   // TODO: FILENAME_LENGTH_EXCEEDED
-  if (vec.back().length() == 0)
-    return NO_FILE_NAME;
+  assert(vec.back().length() != 0);
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -298,8 +307,7 @@ ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
   // copy contents to dest file
   inode = dest_path[0] == '/' ? root_inode : cur_inode;
   vec = split_path(dest_path);
-  if (vec.back().length() == 0)
-    return NO_FILE_NAME;
+  assert(vec.back().length() != 0);
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -344,21 +352,8 @@ ResultCode FileSystem::copy(std::string src_path, std::string dest_path) {
 }
 ResultCode FileSystem::delete_file(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
-  size_t pos;
-  std::string token;
-  std::vector<std::string> vec;
-  if (path[0] == '/') {
-    path = path.substr(1);
-  }
-  while ((pos = path.find('/')) != std::string::npos) {
-    token = path.substr(0, pos);
-    if (token.length() >= MAX_FILENAME_SIZE)
-      return FILENAME_LENGTH_EXCEEDED;
-    vec.push_back(token);
-    path.erase(0, pos + 1);
-  }
-  if (vec.back().length() == 0)
-    return NO_FILE_NAME;
+  std::vector<std::string> vec = split_path(path);
+  assert(vec.back().length() != 0);
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -393,21 +388,8 @@ ResultCode FileSystem::delete_file(std::string path) {
 }
 ResultCode FileSystem::delete_dir(std::string path) {
   auto inode = path[0] == '/' ? root_inode : cur_inode;
-  size_t pos;
-  std::string token;
-  std::vector<std::string> vec;
-  if (path[0] == '/') {
-    path = path.substr(1);
-  }
-  while ((pos = path.find('/')) != std::string::npos) {
-    token = path.substr(0, pos);
-    if (token.length() >= MAX_FILENAME_SIZE)
-      return FILENAME_LENGTH_EXCEEDED;
-    vec.push_back(token);
-    path.erase(0, pos + 1);
-  }
-  if (vec.back().length() == 0)
-    return NO_SUCH_DIR;
+  std::vector<std::string> vec = split_path(path);
+  assert(vec.back().length() != 0);
 
   for (int i = 0; i < vec.size() - 1; ++i) {
     auto next_inode = get_next_inode(inode, vec[i]);
@@ -509,17 +491,16 @@ ResultCode FileSystem::sum() {
   int unused = get_unused_block_num();
   int used = NUM_BLOCK - unused;
 
-  std::cout << "System Size: " << sb.system_size << " Bytes" << std::endl;
-  std::cout << "Block Size: " << sb.block_size << " Bytes" << std::endl;
-  std::cout << "INode Bitmap Size: " << sb.inode_bitmap_size << " Bytes"
+  std::cout << "system size: " << sb.system_size << " Bytes" << std::endl;
+  std::cout << "block size: " << sb.block_size << " Bytes" << std::endl;
+  std::cout << "inode bitmap Size: " << sb.inode_bitmap_size << " B"
             << std::endl;
-  std::cout << "Block Bitmap Size: " << sb.inode_bitmap_size << " Bytes"
+  std::cout << "block bitmap Size: " << sb.inode_bitmap_size << " B"
             << std::endl;
-  std::cout << "INode Table Size: " << sb.inode_table_size << " Bytes"
-            << std::endl;
-  std::cout << "Number of Blocks: " << sb.num_block << std::endl;
-  std::cout << "Number of Blocks that have been used: " << used << std::endl;
-  std::cout << "Number of Blocks that are available: " << unused << std::endl;
+  std::cout << "inode table Size: " << sb.inode_table_size << " B" << std::endl;
+  std::cout << "# of Blocks: " << sb.num_block << std::endl;
+  std::cout << "# of used Blocks: " << used << std::endl;
+  std::cout << "# of unused Blocks: " << unused << std::endl;
   return SUCCESS;
 }
 

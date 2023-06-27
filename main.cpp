@@ -34,72 +34,72 @@ int main() {
   while (true) {
     fs.init_print();
     std::getline(std::cin, input);
-    auto command = split_command(input);
-    if (command.empty())
+    auto cmd = split_command(input);
+    if (cmd.empty())
       continue;
-    if (command[0] == "createFile") {
-      if (command.size() == 3) {
-        auto filesize = std::stoi(command[2]);
-        fs.print_result(fs.create_file(command[1], filesize));
+    if (cmd[0] == "createFile") {
+      if (cmd.size() == 3) {
+        auto filesize = std::stoi(cmd[2]);
+        fs.print_result(fs.create_file(cmd[1], filesize));
       } else {
-        std::cerr << "createFile command in wrong format." << std::endl;
+        std::cerr << "createFile cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "deleteFile") {
-      if (command.size() == 2) {
-        fs.print_result(fs.delete_file(command[1]));
+    } else if (cmd[0] == "deleteFile") {
+      if (cmd.size() == 2) {
+        fs.print_result(fs.delete_file(cmd[1]));
       } else {
-        std::cerr << "deleteFile command in wrong format." << std::endl;
+        std::cerr << "deleteFile cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "createDir") {
-      if (command.size() == 2) {
-        fs.print_result(fs.create_dir(command[1]));
+    } else if (cmd[0] == "createDir") {
+      if (cmd.size() == 2) {
+        fs.print_result(fs.create_dir(cmd[1]));
       } else {
-        std::cerr << "createDir command in wrong format." << std::endl;
+        std::cerr << "createDir cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "deleteDir") {
-      if (command.size() == 2) {
-        fs.print_result(fs.delete_dir(command[1]));
+    } else if (cmd[0] == "deleteDir") {
+      if (cmd.size() == 2) {
+        fs.print_result(fs.delete_dir(cmd[1]));
       } else {
-        std::cerr << "deleteDir command in wrong format." << std::endl;
+        std::cerr << "deleteDir cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "changeDir") {
-      if (command.size() == 2) {
-        fs.print_result(fs.change_dir(command[1]));
+    } else if (cmd[0] == "changeDir") {
+      if (cmd.size() == 2) {
+        fs.print_result(fs.change_dir(cmd[1]));
       } else {
-        std::cerr << "changeDir command in wrong format." << std::endl;
+        std::cerr << "changeDir cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "dir") {
-      if (command.size() == 1) {
+    } else if (cmd[0] == "dir") {
+      if (cmd.size() == 1) {
         fs.print_result(fs.list_dir_contents());
       } else {
-        std::cerr << "dir command in wrong format." << std::endl;
+        std::cerr << "dir cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "cp") {
-      if (command.size() == 3) {
-        fs.print_result(fs.copy(command[1], command[2]));
+    } else if (cmd[0] == "cp") {
+      if (cmd.size() == 3) {
+        fs.print_result(fs.copy(cmd[1], cmd[2]));
       } else {
-        std::cerr << "cp command in wrong format." << std::endl;
+        std::cerr << "cp cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "sum") {
-      if (command.size() == 1) {
+    } else if (cmd[0] == "sum") {
+      if (cmd.size() == 1) {
         fs.print_result(fs.sum());
       } else {
-        std::cerr << "sum command in wrong format." << std::endl;
+        std::cerr << "sum cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "cat") {
-      if (command.size() == 2) {
-        fs.print_result(fs.cat(command[1]));
+    } else if (cmd[0] == "cat") {
+      if (cmd.size() == 2) {
+        fs.print_result(fs.cat(cmd[1]));
       } else {
-        std::cerr << "cat command in wrong format." << std::endl;
+        std::cerr << "cat cmd in wrong format." << std::endl;
       }
-    } else if (command[0] == "exit") {
-      if (command.size() == 1) {
+    } else if (cmd[0] == "exit") {
+      if (cmd.size() == 1) {
         break;
       } else {
-        std::cerr << "exit command in wrong format." << std::endl;
+        std::cerr << "exit cmd in wrong format." << std::endl;
       }
     } else {
-      std::cerr << command[0] << ": command not found" << std::endl;
+      std::cerr << cmd[0] << ": cmd not found" << std::endl;
     }
   }
   return 0;
