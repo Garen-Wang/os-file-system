@@ -43,8 +43,8 @@ private:
   [[nodiscard]] INode *read_inode(int n) const;
   INode *get_next_inode(INode *inode, const std::string &filename);
 
-  int allocate_unused_inode() const;
-  int allocate_unused_block() const;
+  int get_unused_inode_id() const;
+  int get_unused_block_id() const;
   void write_random_to_block(int block_id) const;
   void write_addr_to_block(Address addr, int block_id, int offset) const;
 

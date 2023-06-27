@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 
+#include <fstream>
 #include <iostream>
 
 std::vector<std::string> split_path(std::string path) {
@@ -28,11 +29,13 @@ std::vector<std::string> split_path(std::string path) {
 FileSystem::~FileSystem() { fclose(f); }
 
 void FileSystem::init() {
-  auto os = "os";
-  if (access(os, F_OK) != 0) {
+  std::string os = "unix.os";
+  std::fstream fstream;
+  fstream.open(os, std::ios::in);
+  if (!fstream) {
     // file not exists
     // Opens a file to update both reading and writing. The file must exist.
-    f = fopen(os, "wb+");
+    f = fopen(os.c_str(), "wb+");
     if (f == nullptr) {
       std::cerr << "Error when creating" << std::endl;
       exit(1);
@@ -70,7 +73,7 @@ void FileSystem::init() {
     cur_inode = root_inode;
   } else {
     // file exists
-    f = fopen(os, "rb+");
+    f = fopen(os.c_str(), "rb+");
     if (f == nullptr) {
       std::cerr << "error when loading" << std::endl;
       exit(1);
@@ -130,15 +133,15 @@ ResultCode FileSystem::create_file(std::string path, int filesize) {
     return NOT_ENOUGH_SPACE;
 
   File file;
-  int inode_id = allocate_unused_inode();
-  if (inode_id == -1)
+  int new_inode_id = get_unused_inode_id();
+  if (new_inode_id == -1)
     return NOT_ENOUGH_SPACE;
-  inode = new INode();
-  inode->filesize = filesize;
-  inode->filemode = FILEMODE_FILE;
-  inode->id = inode_id;
-  inode->ctime = time(nullptr);
-  set_inode_bitmap(file.inode_id = inode->id);
+  auto new_inode = new INode();
+  new_inode->filesize = filesize;
+  new_inode->filemode = FILEMODE_FILE;
+  file.inode_id = new_inode->id = new_inode_id;
+  new_inode->ctime = time(nullptr);
+  set_inode_bitmap(file.inode_id);
   strcpy(file.filename, vec.back().c_str());
 
   write_file_to_dentry(file, inode);
@@ -146,26 +149,25 @@ ResultCode FileSystem::create_file(std::string path, int filesize) {
   int remaining_size = filesize;
   for (int i = 0; i < INode::NUM_DIR_ADDR && remaining_size > 0;
        ++i, --remaining_size) {
-    inode->dir_addrs[i] = allocate_unused_block();
-    set_block_bitmap(inode->dir_addrs[i]);
-    write_random_to_block(inode->dir_addrs[i]);
+    new_inode->dir_addrs[i] = get_unused_block_id();
+    set_block_bitmap(new_inode->dir_addrs[i]);
+    write_random_to_block(new_inode->dir_addrs[i]);
   }
   if (remaining_size > 0) {
-    inode->indir_addrs[0] = allocate_unused_block();
-    set_block_bitmap(inode->indir_addrs[0]);
+    new_inode->indir_addrs[0] = get_unused_block_id();
+    set_block_bitmap(new_inode->indir_addrs[0]);
     int cnt = 0;
-    while (remaining_size > 0) {
-      int block_id = allocate_unused_block();
+    while (remaining_size--) {
+      int block_id = get_unused_block_id();
       set_block_bitmap(block_id);
       Address addr;
       addr.set_block_id(block_id);
       addr.set_offset(0);
       write_random_to_block(block_id);
-      write_addr_to_block(addr, inode->indir_addrs[0], cnt++);
-      --remaining_size;
+      write_addr_to_block(addr, new_inode->indir_addrs[0], cnt++);
     }
   }
-  write_inode(inode->id, inode);
+  write_inode(new_inode->id, new_inode);
   return SUCCESS;
 }
 
@@ -191,18 +193,18 @@ ResultCode FileSystem::create_dir(std::string path) {
     return DIR_EXCEEDED;
 
   File file;
-  int inode_id = allocate_unused_inode();
-  if (inode_id == -1)
+  int new_inode_id = get_unused_inode_id();
+  if (new_inode_id == -1)
     return NOT_ENOUGH_SPACE;
-  inode = new INode();
-  inode->filemode = FILEMODE_DENTRY;
-  inode->id = inode_id;
-  inode->ctime = time(nullptr);
-  set_inode_bitmap(file.inode_id = inode->id);
+  auto new_inode = new INode();
+  new_inode->filemode = FILEMODE_DENTRY;
+  file.inode_id = new_inode->id = new_inode_id;
+  new_inode->ctime = time(nullptr);
+  set_inode_bitmap(file.inode_id);
   strcpy(file.filename, vec.back().c_str());
 
   write_file_to_dentry(file, inode);
-  write_inode(inode->id, inode);
+  write_inode(new_inode->id, new_inode);
   return SUCCESS;
 }
 
@@ -513,10 +515,11 @@ ResultCode FileSystem::sum() {
   std::cout << "Number of Blocks: " << sb.num_block << std::endl;
   std::cout << "Number of Blocks that have been used: " << used << std::endl;
   std::cout << "Number of Blocks that are available: " << unused << std::endl;
+  return SUCCESS;
 }
 
 // utility methods
-int FileSystem::allocate_unused_inode() const {
+int FileSystem::get_unused_inode_id() const {
   fseek(f, INODE_BITMAP_ADDR, SEEK_SET);
   int pos = -1;
   for (int i = 0; i < INODE_BITMAP_SIZE; ++i) {
@@ -539,7 +542,7 @@ void FileSystem::set_block_bitmap(int n) const {
   fseek(f, BLOCK_BITMAP_ADDR + num, SEEK_SET);
   fread(&buf, sizeof(unsigned char), 1, f);
   buf |= (1 << offset); // just mark
-  fseek(f, -1, SEEK_CUR);
+  fseek(f, BLOCK_BITMAP_ADDR + num, SEEK_SET);
   fwrite(&buf, sizeof(unsigned char), 1, f);
 }
 void FileSystem::set_inode_bitmap(int n) const {
@@ -548,7 +551,7 @@ void FileSystem::set_inode_bitmap(int n) const {
   fseek(f, INODE_BITMAP_ADDR + num, SEEK_SET);
   fread(&buf, sizeof(unsigned char), 1, f);
   buf |= (1 << offset); // just mark
-  fseek(f, -1, SEEK_CUR);
+  fseek(f, INODE_BITMAP_ADDR + num, SEEK_SET);
   fwrite(&buf, sizeof(unsigned char), 1, f);
 }
 void FileSystem::unset_block_bitmap(int n) const {
@@ -557,8 +560,8 @@ void FileSystem::unset_block_bitmap(int n) const {
   fseek(f, BLOCK_BITMAP_ADDR + num, SEEK_SET);
   fread(&buf, sizeof(unsigned char), 1, f);
   unsigned char mask = ~(1 << offset);
-  buf |= mask; // just mark
-  fseek(f, -1, SEEK_CUR);
+  buf &= mask; // just mark
+  fseek(f, BLOCK_BITMAP_ADDR + num, SEEK_SET);
   fwrite(&buf, sizeof(unsigned char), 1, f);
 }
 void FileSystem::unset_inode_bitmap(int n) const {
@@ -567,8 +570,8 @@ void FileSystem::unset_inode_bitmap(int n) const {
   fseek(f, INODE_BITMAP_ADDR + num, SEEK_SET);
   fread(&buf, sizeof(unsigned char), 1, f);
   unsigned char mask = ~(1 << offset);
-  buf |= mask; // just mark
-  fseek(f, -1, SEEK_CUR);
+  buf &= mask; // just mark
+  fseek(f, INODE_BITMAP_ADDR + num, SEEK_SET);
   fwrite(&buf, sizeof(unsigned char), 1, f);
 }
 INode *FileSystem::read_inode(int n) const {
@@ -576,6 +579,10 @@ INode *FileSystem::read_inode(int n) const {
   fseek(f, INODE_TABLE_ADDR + INODE_SIZE * n, SEEK_SET);
   fread(inode, sizeof(INode), 1, f);
   return inode;
+}
+void FileSystem::write_inode(int pos, INode *inode) const {
+  fseek(f, INODE_TABLE_ADDR + INODE_SIZE * pos, SEEK_SET);
+  fwrite(inode, sizeof(INode), 1, f);
 }
 INode *FileSystem::get_next_inode(INode *inode, const std::string &filename) {
   int cnt = inode->mcount;
@@ -596,7 +603,7 @@ INode *FileSystem::get_next_inode(INode *inode, const std::string &filename) {
   }
   return nullptr;
 }
-int FileSystem::allocate_unused_block() const {
+int FileSystem::get_unused_block_id() const {
   fseek(f, BLOCK_BITMAP_ADDR, SEEK_SET);
   int pos = -1;
   for (int i = 0; i < BLOCK_BITMAP_SIZE; ++i) {
@@ -639,17 +646,13 @@ int FileSystem::get_unused_block_num() const {
   }
   return cnt;
 }
-void FileSystem::write_inode(int pos, INode *inode) const {
-  fseek(f, INODE_TABLE_ADDR + INODE_SIZE * pos, SEEK_SET);
-  fwrite(&inode, sizeof(INode), 1, f);
-}
 void FileSystem::write_file_to_dentry(File file, INode *inode) {
   int cnt = inode->count;
   const int FILE_PER_BLOCK = sb.block_size / sizeof(File);
 
   if (cnt == inode->mcount) {
     if (cnt % FILE_PER_BLOCK == 0) {
-      inode->dir_addrs[cnt / FILE_PER_BLOCK] = allocate_unused_block();
+      inode->dir_addrs[cnt / FILE_PER_BLOCK] = get_unused_block_id();
       set_block_bitmap(inode->dir_addrs[cnt / FILE_PER_BLOCK]);
       fseek(f, BLOCK_SIZE * inode->dir_addrs[cnt / FILE_PER_BLOCK], SEEK_SET);
     } else {
