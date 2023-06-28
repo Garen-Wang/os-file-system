@@ -6,8 +6,8 @@ void print_welcome_msg() {
   std::cout << "Operating Systems Module Practice 2023" << std::endl;
   std::cout << "Group members: " << std::endl
             << "王樾 202030430189" << std::endl
-            << "黄嘉威 20203043????" << std::endl
-            << "姜融青 2020????????" << std::endl;
+            << "黄嘉威 202030430318" << std::endl
+            << "姜融青 202030551259" << std::endl;
 }
 
 std::vector<std::string> split_command(std::string input) {
