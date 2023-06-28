@@ -143,8 +143,8 @@ ResultCode FileSystem::create_file(std::string path, int filesize) {
     return DIR_EXCEEDED;
 
   int unused = get_unused_block_num();
-  constexpr int MAX_FILE_SIZE = 351; // TODO:
-  if (filesize > unused || filesize > MAX_FILE_SIZE)
+  auto max_file_size = 10 + sb.block_size / sizeof(Address); // 351
+  if (filesize > unused || filesize > max_file_size)
     return NOT_ENOUGH_SPACE;
 
   File file;
