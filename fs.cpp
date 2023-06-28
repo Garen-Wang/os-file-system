@@ -106,7 +106,6 @@ ResultCode FileSystem::list_dir_contents() {
       fread(&file, sizeof(File), 1, f);
       if (file.inode_id != -1) {
         auto inode = read_inode(file.inode_id);
-        // TODO: print format
         char time_buffer[32];
         std::strftime(time_buffer, 32, "%a, %d.%m.%Y %H:%M:%S",
                       std::localtime(&inode->ctime));
