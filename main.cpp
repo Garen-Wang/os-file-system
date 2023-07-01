@@ -1,6 +1,7 @@
 #include "fs.h"
 
 #include <iostream>
+#include <vector>
 
 void print_welcome_msg() {
   std::cout << "Operating Systems Module Practice 2023" << std::endl;

@@ -3,9 +3,11 @@
 #include "file.h"
 
 #include <unistd.h>
+#include <cstring>
 
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 std::string get_filemode_name(int filemode) {
   if (filemode == FILEMODE_DENTRY)
